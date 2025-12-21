@@ -145,23 +145,24 @@ def results(request, cad_id):
     for room in rooms:
         for fixture in room.fixtures.all():
             # Get comprehensive recommendations based on budget ranges
+            # Enhanced: Get more alternatives (15 per category instead of 5)
             recommendations_below = get_budget_based_recommendations(
                 fixture.lighting_catalog.unit_cost, 
                 fixture.lighting_catalog, 
                 budget_range='below',
-                limit=5
+                limit=15
             )
             recommendations_within = get_budget_based_recommendations(
                 fixture.lighting_catalog.unit_cost, 
                 fixture.lighting_catalog, 
                 budget_range='within',
-                limit=5
+                limit=15
             )
             recommendations_above = get_budget_based_recommendations(
                 fixture.lighting_catalog.unit_cost, 
                 fixture.lighting_catalog, 
                 budget_range='above',
-                limit=5
+                limit=15
             )
             
             # Calculate efficiency scores for sorting
@@ -169,9 +170,9 @@ def results(request, cad_id):
             for rec in all_recommendations:
                 rec.efficiency_score = calculate_fixture_efficiency_score(rec)
             
-            # Sort by efficiency score and limit to top 10
+            # Sort by efficiency score and limit to top 20 (increased from 10)
             all_recommendations.sort(key=lambda x: x.efficiency_score, reverse=True)
-            all_recommendations = all_recommendations[:10]
+            all_recommendations = all_recommendations[:20]
             
             light_data = {
                 'room': room.name,

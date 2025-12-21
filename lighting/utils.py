@@ -528,30 +528,37 @@ def generate_csv_report(cad_file: CADFile) -> str:
     return filepath
 
 
-def get_budget_based_recommendations(current_fixture_cost, catalog_item, budget_range='medium', limit=10):
+def get_budget_based_recommendations(current_fixture_cost, catalog_item, budget_range='medium', limit=15):
     """
-    Get fixture recommendations based on budget ranges
+    Get fixture recommendations based on budget ranges with expanded catalog coverage
     
     Args:
-        current_fixture_cost: Current fixture unit cost
+        current_fixture_cost: Current fixture unit cost (in INR ₹)
         catalog_item: Current LightingCatalog item
         budget_range: 'below', 'within', 'above', or 'all' (default: 'medium' for varied selection)
-        limit: Maximum number of recommendations to return
+        limit: Maximum number of recommendations to return (default: 15)
         
     Returns:
-        QuerySet of recommended LightingCatalog items sorted by relevance
+        QuerySet of recommended LightingCatalog items sorted by relevance, efficiency, and cost-effectiveness
     """
     from decimal import Decimal
     
-    # Calculate budget thresholds (±20% for within budget)
-    below_threshold = current_fixture_cost * Decimal('0.8')
-    above_threshold = current_fixture_cost * Decimal('1.2')
+    # Expanded budget thresholds for wider coverage
+    # Below: 30-100% of current cost
+    # Within: 80-120% of current cost  
+    # Above: 100-150% of current cost
+    below_min_threshold = current_fixture_cost * Decimal('0.3')
+    below_max_threshold = current_fixture_cost
+    within_min_threshold = current_fixture_cost * Decimal('0.8')
+    within_max_threshold = current_fixture_cost * Decimal('1.2')
+    above_min_threshold = current_fixture_cost
+    above_max_threshold = current_fixture_cost * Decimal('1.5')
     
-    # Get fixtures with similar lumens (±25%) to maintain lighting quality
-    min_lumens = catalog_item.lumens * 0.75
-    max_lumens = catalog_item.lumens * 1.25
+    # Wider lumens range (±35%) to include more alternatives while maintaining quality
+    min_lumens = catalog_item.lumens * 0.65
+    max_lumens = catalog_item.lumens * 1.35
     
-    # Base query: similar specifications
+    # Base query: similar specifications, exclude current item
     base_query = LightingCatalog.objects.filter(
         lumens__gte=min_lumens,
         lumens__lte=max_lumens,
@@ -560,27 +567,27 @@ def get_budget_based_recommendations(current_fixture_cost, catalog_item, budget_
     recommendations = []
     
     if budget_range == 'below' or budget_range == 'all':
-        # Below budget: 10-30% cheaper
+        # Below budget: 30-100% of current cost (more affordable options)
         below_budget = base_query.filter(
-            unit_cost__lt=current_fixture_cost,
-            unit_cost__gte=current_fixture_cost * Decimal('0.7')
-        ).order_by('unit_cost')[:limit // 3 if budget_range == 'all' else limit]
+            unit_cost__gte=below_min_threshold,
+            unit_cost__lt=below_max_threshold
+        ).order_by('unit_cost', '-lumens')[:limit]
         recommendations.extend(below_budget)
     
     if budget_range == 'within' or budget_range == 'all':
-        # Within budget: ±20%
+        # Within budget: ±20% (similar price range)
         within_budget = base_query.filter(
-            unit_cost__gte=below_threshold,
-            unit_cost__lte=above_threshold
-        ).order_by('-lumens', 'unit_cost')[:limit // 3 if budget_range == 'all' else limit]
+            unit_cost__gte=within_min_threshold,
+            unit_cost__lte=within_max_threshold
+        ).order_by('-lumens', 'unit_cost')[:limit]
         recommendations.extend(within_budget)
     
     if budget_range == 'above' or budget_range == 'all':
-        # Above budget: 10-30% more expensive but higher quality
+        # Above budget: 100-150% (premium options with better specs)
         above_budget = base_query.filter(
-            unit_cost__gt=current_fixture_cost,
-            unit_cost__lte=current_fixture_cost * Decimal('1.3')
-        ).order_by('-lumens', 'unit_cost')[:limit // 3 if budget_range == 'all' else limit]
+            unit_cost__gt=above_min_threshold,
+            unit_cost__lte=above_max_threshold
+        ).order_by('-lumens', 'unit_cost')[:limit]
         recommendations.extend(above_budget)
     
     # Remove duplicates while preserving order
