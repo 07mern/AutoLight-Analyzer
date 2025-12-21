@@ -150,7 +150,7 @@
                                         {% endwith %}
                                         <i class="bi bi-lightbulb text-warning"></i>
                                     </td>
-                                    <td><strong>${{ cost|floatformat:2 }}</strong></td>
+                                    <td><strong>₹{{ cost|floatformat:2 }}</strong></td>
                                     <td>
                                         <a href="{% url 'lighting:results' project.id %}" 
                                            class="btn btn-sm btn-primary" 
